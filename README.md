@@ -70,6 +70,26 @@ powershell -ExecutionPolicy Bypass -File scripts/fetch_deps.ps1
 powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Clean -Test -Package
 ```
 
+## Desktop UI & Windows Installer
+
+Launch the GUI directly in development:
+
+```powershell
+python ui\videoupscale_gui.py
+```
+
+Or build the standalone **VideoUpscale Studio** GUI + CLI + Inno Setup installer (`build/installer/VideoUpscale-0.1.0-Setup.exe`):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build_installer.ps1
+```
+
+The GUI supports:
+- Multi-video input queue + video quality inspection (`analyze`)
+- Optional **Dola AI** & **Gemini Sparkle** watermark removal pre-passes (`inpaint` / `delogo`, custom ROI, enable/disable)
+- Multi-select **Output Scales** (`2×`, `4×`, `8×`) and **Algorithms** (`mfsr`, `ibp`, `edge`, `lanczos`, `bicubic`, `bilinear`, `nearest`) to generate multiple comparison outputs in one click
+- Presets (`quality`, `balanced`, `fast`), denoise/deblock/sharpen/halo suppression, CRF/codec/backend settings, 24-frame preview mode, live progress bars, and cancellation
+
 ## Documentation
 
 - [BUILDING.md](BUILDING.md) — Windows build & dependency instructions
