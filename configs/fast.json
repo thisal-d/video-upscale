@@ -1,0 +1,18 @@
+{
+  "preset": "fast",
+  "scale": 2,
+  "upscaler": "edge",
+  "chroma_upscaler": "bicubic",
+  "backend": "auto",
+  "enhance": {
+    "denoise": "auto",
+    "deblock": "auto",
+    "sharpen": 0.0
+  },
+  "encoder": {
+    "codec": "libx264",
+    "crf": 18,
+    "preset": "veryfast",
+    "copy_audio": true
+  }
+}

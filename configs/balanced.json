@@ -1,0 +1,20 @@
+{
+  "preset": "balanced",
+  "scale": 2,
+  "chroma_upscaler": "bicubic",
+  "backend": "auto",
+  "tile_size": 192,
+  "queue_depth": 4,
+  "enhance": {
+    "denoise": "auto",
+    "deblock": "auto",
+    "sharpen": 0.15,
+    "halo_suppression": true
+  },
+  "encoder": {
+    "codec": "libx264",
+    "crf": 18,
+    "preset": "medium",
+    "copy_audio": true
+  }
+}

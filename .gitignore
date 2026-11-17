@@ -1,0 +1,11 @@
+/build*/
+/out/
+/third_party/
+/benchmarks/datasets/
+/benchmarks/results/*.mp4
+/benchmarks/results/*.mkv
+/test_outputs/
+/example videos/
+*.user
+.vs/
+__pycache__/
