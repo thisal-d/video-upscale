@@ -41,6 +41,8 @@ Write-Host "[installer] Bundling VideoUpscaleUI.exe with PyInstaller..."
   --onedir `
   --windowed `
   --name VideoUpscaleUI `
+  --icon (Join-Path $root 'assets\logo.ico') `
+  --add-data "$(Join-Path $root 'assets\logo.ico');." `
   --distpath $pyiDist `
   --workpath $pyiWork `
   --specpath $pyiWork `
@@ -85,5 +87,12 @@ if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
 
 $setupExe = Join-Path $buildDir 'installer\VideoUpscale-0.1.0-Setup.exe'
 if (-not (Test-Path $setupExe)) { throw "Expected installer not found at $setupExe" }
+
+$prodDir = Join-Path $root 'production'
+New-Item -ItemType Directory -Force -Path $prodDir | Out-Null
+Copy-Item -Force $setupExe (Join-Path $prodDir 'VideoUpscale-0.1.0-Setup.exe')
+$zipPkg = Join-Path $buildDir 'packages\VideoUpscale-0.1.0-win64.zip'
+if (Test-Path $zipPkg) { Copy-Item -Force $zipPkg (Join-Path $prodDir 'VideoUpscale-0.1.0-win64.zip') }
+
 $sizeMb = [math]::Round((Get-Item $setupExe).Length / 1MB, 1)
-Write-Host "[installer] DONE -> $setupExe ($sizeMb MB)"
+Write-Host "[installer] DONE -> $setupExe ($sizeMb MB) & copied to $prodDir"

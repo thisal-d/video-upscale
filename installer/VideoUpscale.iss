@@ -19,6 +19,8 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 DisableProgramGroupPage=yes
+SetupIconFile=..\assets\logo.ico
+UninstallDisplayIcon={app}\VideoUpscaleUI.exe
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

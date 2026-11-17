@@ -1,8 +1,11 @@
-# VideoUpscale
+<div align="center">
+  <img src="assets/logo.png" alt="VideoUpscale Studio Logo" width="140" />
+  <h1>VideoUpscale Studio</h1>
+  <p><strong>CPU-first classical computer-vision video super-resolution, enhancement &amp; watermark removal suite</strong></p>
+  <p>Built in C++20 with FFmpeg, OpenCV, OpenMP &amp; AVX2 — zero neural networks, full audio &amp; VFR timestamp preservation.</p>
+</div>
 
-**VideoUpscale** is a CPU-first classical computer-vision video super-resolution and enhancement engine written in C++20.
-
-It uses strictly mathematical and classical signal-processing methods (no pretrained AI models, no neural networks, no cloud APIs), prioritizes genuine visual quality over blind resolution inflation, and preserves audio streams and variable frame-rate timestamps in bounded streaming memory.
+---
 
 ## Features
 

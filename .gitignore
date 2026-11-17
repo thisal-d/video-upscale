@@ -10,6 +10,8 @@
 /preview_*.mp4
 /dola-watermark-remover.py
 /gemini-watermark-remover.py
+/production/*.exe
+/production/*.zip
 *.user
 .vs/
 __pycache__/

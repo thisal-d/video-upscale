@@ -59,6 +59,7 @@ class VideoUpscaleApp:
         self.root.title("VideoUpscale Studio v0.1.0")
         self.root.geometry("980x780")
         self.root.minsize(860, 680)
+        self._set_window_icon()
 
         self.cli_exe = find_cli_exe()
         self.ui_queue: queue.Queue = queue.Queue()
@@ -78,6 +79,16 @@ class VideoUpscaleApp:
             self._log("[WARN] videoupscale.exe not found next to app or in build/src/.")
         else:
             self._log(f"[Ready] Engine: {self.cli_exe}")
+
+    def _set_window_icon(self) -> None:
+        base = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent
+        for p in (base / "assets" / "logo.ico", base / "_internal" / "logo.ico", base / "logo.ico"):
+            if p.is_file():
+                try:
+                    self.root.iconbitmap(str(p))
+                except Exception:
+                    pass
+                break
 
     def _setup_style(self) -> None:
         style = ttk.Style()
