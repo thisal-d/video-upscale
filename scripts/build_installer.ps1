@@ -45,8 +45,6 @@ Write-Host "[installer] Bundling VideoUpscaleUI.exe with PyInstaller..."
   --workpath $pyiWork `
   --specpath $pyiWork `
   --paths (Join-Path $root 'ui') `
-  --add-data "$(Join-Path $root 'dola-watermark-remover.py');." `
-  --add-data "$(Join-Path $root 'gemini-watermark-remover.py');." `
   --hidden-import cv2 `
   --hidden-import numpy `
   --hidden-import imageio_ffmpeg `
@@ -65,11 +63,7 @@ $ffBin = Join-Path $root 'third_party\ffmpeg\bin'
 if (Test-Path (Join-Path $ffBin 'ffmpeg.exe')) { Copy-Item -Force (Join-Path $ffBin 'ffmpeg.exe') $stageDir }
 if (Test-Path (Join-Path $ffBin 'ffprobe.exe')) { Copy-Item -Force (Join-Path $ffBin 'ffprobe.exe') $stageDir }
 
-# Copy watermark scripts alongside exe for clarity + easy inspection
-Copy-Item -Force (Join-Path $root 'dola-watermark-remover.py') $stageDir
-Copy-Item -Force (Join-Path $root 'gemini-watermark-remover.py') $stageDir
-
-# Copy configs and docs
+# Copy configs and docs (no loose .py files in installed app)
 Copy-Item -Recurse -Force (Join-Path $root 'configs') (Join-Path $stageDir 'configs')
 foreach ($doc in @('README.md', 'LICENSE-NOTES.md')) {
   $dp = Join-Path $root $doc

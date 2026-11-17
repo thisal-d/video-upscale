@@ -6,6 +6,10 @@
 /benchmarks/results/*.mkv
 /test_outputs/
 /example videos/
+/output_*.mp4
+/preview_*.mp4
+/dola-watermark-remover.py
+/gemini-watermark-remover.py
 *.user
 .vs/
 __pycache__/
