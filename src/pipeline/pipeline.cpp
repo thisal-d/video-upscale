@@ -181,6 +181,12 @@ RunReport runUpscale(const PipelineOptions& opt) {
   report.input = inInfo;
   report.outWidth = inInfo.width * opt.cfg.scale;
   report.outHeight = inInfo.height * opt.cfg.scale;
+  if (opt.cfg.encoder.pixFmt == "yuv420p" && (report.outWidth % 2 != 0 || report.outHeight % 2 != 0)) {
+    fail(ErrorCode::InvalidArgument,
+         std::format("yuv420p requires even output dimensions, but {}x{} at {}x scale produces {}x{} "
+                     "(use an even-sized input or an even scale factor)",
+                     inInfo.width, inInfo.height, opt.cfg.scale, report.outWidth, report.outHeight));
+  }
 
   auto addWarn = [&](const std::string& w) {
     log::warn("{}", w);

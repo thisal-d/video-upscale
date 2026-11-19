@@ -19,4 +19,13 @@ void edgeDirectedUpscale(const cv::Mat& src, cv::Mat& dst, cv::Size dstSize, flo
 // Applies `method` as successive 2x stages until reaching `scale` (progressive mode).
 void upscaleProgressive(const cv::Mat& src, cv::Mat& dst, int scale, Upscaler method, float edgeBlend = 1.0f);
 
+// Tyranox Algorithm family:
+// 1. TyranoxCrazy ("Tyranox - crazy"): pure 1 -> s x s exact pixel replication
+//    (1 -> 4 at 2x, 1 -> 9 at 3x, 1 -> 16 at 4x, 1 -> 64 at 8x).
+// 2. TyranoxEdge: Scale2x/Scale3x-style diagonal anti-staircasing pixel replication.
+// 3. TyranoxSmooth: pixel replication + edge-preserving bilateral anti-aliasing.
+void tyranoxCrazyUpscale(const cv::Mat& src, cv::Mat& dst, cv::Size dstSize);
+void tyranoxEdgeUpscale(const cv::Mat& src, cv::Mat& dst, cv::Size dstSize);
+void tyranoxSmoothUpscale(const cv::Mat& src, cv::Mat& dst, cv::Size dstSize);
+
 }  // namespace vu::recon

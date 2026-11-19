@@ -2,6 +2,10 @@
 
 All notable engineering decisions, milestone builds, and verified test results are recorded here.
 
+## [0.1.1] - Release Update
+- **Version Bump**: Updated project, CLI, Desktop GUI, installer, and release documentation to `0.1.1` (`VideoUpscale-0.1.1-Setup.exe`, `VideoUpscale-0.1.1-win64.zip`).
+- **Tyranox - crazy & 3× Scaling**: Added `tyranox_crazy` (`"Tyranox - crazy"`, with `tyranox` alias) pure `1 → s×s` exact luma & chroma pixel replication alongside `tyranox_edge` (2×/3× diagonal anti-staircasing) and `tyranox_smooth`; added `3×` integer scaling (`3×3 = 9` pixels per original pixel, e.g. 360p → 1080p) with clean `yuv420p` even-dimension validation.
+
 ## [0.1.0] - Milestones 1–7
 
 ### Milestone 1 & 2: Foundation & Spatial Baselines

@@ -125,7 +125,8 @@ MfsrStats reconstructMultiFrame(const std::vector<MfsrInputFrame>& window, int r
   require(refIdx >= 0 && refIdx < static_cast<int>(window.size()), ErrorCode::InvalidArgument, "bad refIdx");
   const auto& ref = window[refIdx];
   const int lw = ref.yFloat.cols, lh = ref.yFloat.rows;
-  const int scale = (cfg.progressive && cfg.scale > 2) ? 2 : cfg.scale;
+  const bool useProgressive = cfg.progressive && (cfg.scale == 4 || cfg.scale == 8);
+  const int scale = useProgressive ? 2 : cfg.scale;
   const int hw = lw * scale, hh = lh * scale;
   const cv::Size hrSize(hw, hh);
 
@@ -291,8 +292,8 @@ MfsrStats reconstructMultiFrame(const std::vector<MfsrInputFrame>& window, int r
     stats.finalRefRmse = st.finalRmse;
   }
 
-  // Progressive 2x stage(s) if progressive=true and scale > 2
-  if (cfg.progressive && cfg.scale > 2) {
+  // Progressive 2x stage(s) if progressive=true and power-of-two scale > 2
+  if (useProgressive) {
     iterativeBackProjectionProgressive(X, hrOut, cfg.scale / 2, cfg.recon, cfg.tileSize);
   } else {
     hrOut = std::move(X);

@@ -105,7 +105,8 @@ TileStats refineTileIbp(const cv::Mat& lrTile, cv::Mat& hrTile, int scale, const
 IbpStats iterativeBackProjection(const cv::Mat& lr, cv::Mat& hr, int scale,
                                  const ReconstructionParams& params, int tileSize) {
   CV_Assert(lr.type() == CV_32FC1);
-  require(scale == 2 || scale == 4 || scale == 8, ErrorCode::InvalidArgument, "IBP scale must be 2, 4 or 8");
+  require(scale == 2 || scale == 3 || scale == 4 || scale == 8, ErrorCode::InvalidArgument,
+          "IBP scale must be 2, 3, 4 or 8");
 
   const cv::Size hrSize(lr.cols * scale, lr.rows * scale);
   // 1. Edge-directed initial HR estimate (already OpenMP parallelized across rows)
@@ -181,6 +182,9 @@ IbpStats iterativeBackProjection(const cv::Mat& lr, cv::Mat& hr, int scale,
 
 IbpStats iterativeBackProjectionProgressive(const cv::Mat& lr, cv::Mat& hr, int scale,
                                             const ReconstructionParams& params, int tileSize) {
+  if (scale != 2 && scale != 4 && scale != 8) {
+    return iterativeBackProjection(lr, hr, scale, params, tileSize);
+  }
   IbpStats total;
   cv::Mat cur = lr;
   int s = 1;

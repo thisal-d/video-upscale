@@ -22,20 +22,20 @@ namespace {
 
 void printUsage() {
   std::cout <<
-R"(VideoUpscale v0.1.0 - Classical Computer-Vision Video Enhancement Engine
+R"(VideoUpscale v0.1.1 - Classical Computer-Vision Video Enhancement Engine
 
 Usage:
   videoupscale upscale <input> --output <path> [options]
   videoupscale analyze <input> [--report <path>] [--max-frames <N>] [--json]
-  videoupscale benchmark --dataset <dir> [--scale 2|4|8] [--output <report.json>]
+  videoupscale benchmark --dataset <dir> [--scale 2|3|4|8] [--output <report.json>]
                          [--methods m1,m2,...] [--compare-progressive] [--max-frames N]
 
 Upscale options:
   -o, --output <path>      Output video path (.mp4, .mkv, .mov, ...) [required]
-  -s, --scale <2|4|8>      Upscaling factor (default: 2)
-  -u, --upscaler <name>    nearest | bilinear | bicubic | lanczos | edge | ibp | mfsr
-                           (default: mfsr)
-      --chroma <name>      Chroma upscaler: nearest|bilinear|bicubic|lanczos|edge (default: bicubic)
+  -s, --scale <2|3|4|8>    Upscaling factor (default: 2)
+  -u, --upscaler <name>    nearest | bilinear | bicubic | lanczos | edge | ibp | mfsr |
+                           tyranox_crazy | tyranox_edge | tyranox_smooth (default: mfsr)
+      --chroma <name>      Chroma upscaler: nearest|bilinear|bicubic|lanczos|edge|tyranox_crazy (default: bicubic)
       --progressive        Apply successive 2x stages for 4x/8x
       --denoise <mode>     off | auto | on (default: auto)
       --deblock <mode>     off | auto | on (default: auto)
@@ -318,8 +318,8 @@ int cmdBenchmark(int argc, char** argv) {
     }
   }
   if (bo.datasetDir.empty()) vu::fail(vu::ErrorCode::InvalidArgument, "missing --dataset <dir>");
-  if (bo.scale != 2 && bo.scale != 4 && bo.scale != 8)
-    vu::fail(vu::ErrorCode::InvalidArgument, "scale must be 2, 4 or 8");
+  if (bo.scale != 2 && bo.scale != 3 && bo.scale != 4 && bo.scale != 8)
+    vu::fail(vu::ErrorCode::InvalidArgument, "scale must be 2, 3, 4 or 8");
 
   nlohmann::json res = vu::quality::runBenchmarkSuite(bo);
   if (printJson) std::cout << res.dump(2) << '\n';
@@ -340,7 +340,7 @@ int main(int argc, char** argv) {
       return 0;
     }
     if (cmd == "--version" || cmd == "version") {
-      std::cout << "VideoUpscale 0.1.0\n"
+      std::cout << "VideoUpscale 0.1.1\n"
                 << "CPU: " << vu::sys::cpuName() << " (" << vu::sys::hardwareThreads() << " threads)\n"
                 << "OpenMP: " << (vu::compute::openmpAvailable() ? "yes" : "no")
                 << " | AVX2: " << (vu::compute::avx2KernelsAvailable() ? "yes" : "no") << '\n';

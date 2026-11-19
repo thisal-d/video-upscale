@@ -39,7 +39,7 @@
 
 ### Milestone 8: Release Preparation & Final Verification
 - [x] Complete documentation (`README.md`, `ARCHITECTURE.md`, `ALGORITHMS.md`, `BUILDING.md`, `TESTING.md`, `PERFORMANCE.md`, `ROADMAP.md`, `CHANGELOG.md`, `LICENSE-NOTES.md`)
-- [x] One-command clean build script (`scripts/build.ps1`) + CPack portable Windows ZIP (`VideoUpscale-0.1.0-win64.zip`)
+- [x] One-command clean build script (`scripts/build.ps1`) + CPack portable Windows ZIP (`VideoUpscale-0.1.1-win64.zip`)
 - [x] Extra integration tests for `mfsr` + `--backend cpu` + error codes (`tests/test_core_io.cpp`)
 - [x] Clean from-scratch build verification (`scripts/build.ps1 -Clean -Test -Package`) — 21/21 CTest tests passed in 16.82s
 - [x] Final CLI command smoke verification (`2x`, `4x --preset quality`, `--backend cpu`, `analyze --report`, `--backend gpu` exit code `5`, `ffprobe` stream checks)

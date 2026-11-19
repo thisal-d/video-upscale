@@ -39,6 +39,15 @@ void upscalePlane(const cv::Mat& src, cv::Mat& dst, cv::Size dstSize, Upscaler m
     case Upscaler::EdgeAware:
       edgeDirectedUpscale(src, dst, dstSize, edgeBlend);
       return;
+    case Upscaler::TyranoxCrazy:
+      tyranoxCrazyUpscale(src, dst, dstSize);
+      return;
+    case Upscaler::TyranoxEdge:
+      tyranoxEdgeUpscale(src, dst, dstSize);
+      return;
+    case Upscaler::TyranoxSmooth:
+      tyranoxSmoothUpscale(src, dst, dstSize);
+      return;
     default:
       fail(ErrorCode::InvalidArgument, std::string("upscalePlane: not a spatial method: ") + toString(method));
   }
@@ -128,6 +137,10 @@ void edgeDirectedUpscale(const cv::Mat& src, cv::Mat& dst, cv::Size dstSize, flo
 }
 
 void upscaleProgressive(const cv::Mat& src, cv::Mat& dst, int scale, Upscaler method, float edgeBlend) {
+  if (scale != 2 && scale != 4 && scale != 8) {
+    upscalePlane(src, dst, cv::Size(src.cols * scale, src.rows * scale), method, edgeBlend);
+    return;
+  }
   cv::Mat cur = src;
   int s = 1;
   while (s < scale) {
@@ -137,6 +150,133 @@ void upscaleProgressive(const cv::Mat& src, cv::Mat& dst, int scale, Upscaler me
     s *= 2;
   }
   dst = cur;
+}
+
+void tyranoxCrazyUpscale(const cv::Mat& src, cv::Mat& dst, cv::Size dstSize) {
+  CV_Assert(src.type() == CV_32FC1);
+  const int lw = src.cols, lh = src.rows;
+  if (dstSize.width % lw != 0 || dstSize.height % lh != 0 || dstSize.width / lw != dstSize.height / lh) {
+    cv::resize(src, dst, dstSize, 0, 0, cv::INTER_NEAREST_EXACT);
+    return;
+  }
+  const int scale = dstSize.width / lw;
+  dst.create(dstSize, CV_32FC1);
+  const int nthr = compute::maxThreads();
+#pragma omp parallel for schedule(static) num_threads(nthr) if (nthr > 1 && lh >= 64)
+  for (int y = 0; y < lh; ++y) {
+    const float* srow = src.ptr<float>(y);
+    float* d0 = dst.ptr<float>(y * scale);
+    for (int x = 0; x < lw; ++x) {
+      const float v = srow[x];
+      const int bx = x * scale;
+      for (int sx = 0; sx < scale; ++sx) d0[bx + sx] = v;
+    }
+    for (int sy = 1; sy < scale; ++sy) {
+      std::copy(d0, d0 + dstSize.width, dst.ptr<float>(y * scale + sy));
+    }
+  }
+}
+
+namespace {
+inline float tyranoxCornerVal(float P, float A, float B, float OppA, float OppB) {
+  constexpr float tau = 0.08f;
+  const float dAB = std::abs(A - B);
+  if (dAB >= tau) return P;
+  const float diffOpp = std::min(std::abs(A - OppA), std::abs(B - OppB));
+  if (diffOpp <= dAB) return P;
+  const float wSim = 1.0f - (dAB / tau);
+  const float wOpp = std::min(1.0f, (diffOpp - dAB) / tau);
+  const float w = 0.55f * wSim * wOpp;
+  return P + w * (0.5f * (A + B) - P);
+}
+
+void tyranoxEdge2xStep(const cv::Mat& src, cv::Mat& dst) {
+  const int lw = src.cols, lh = src.rows;
+  dst.create(lh * 2, lw * 2, CV_32FC1);
+  const int nthr = compute::maxThreads();
+
+#pragma omp parallel for schedule(static) num_threads(nthr) if (nthr > 1 && lh >= 64)
+  for (int y = 0; y < lh; ++y) {
+    const float* rU = src.ptr<float>(std::max(0, y - 1));
+    const float* rP = src.ptr<float>(y);
+    const float* rD = src.ptr<float>(std::min(lh - 1, y + 1));
+    float* out0 = dst.ptr<float>(y * 2);
+    float* out1 = dst.ptr<float>(y * 2 + 1);
+    for (int x = 0; x < lw; ++x) {
+      const float P = rP[x];
+      const float U = rU[x];
+      const float D = rD[x];
+      const float L = rP[std::max(0, x - 1)];
+      const float R = rP[std::min(lw - 1, x + 1)];
+      out0[x * 2] = tyranoxCornerVal(P, U, L, R, D);
+      out0[x * 2 + 1] = tyranoxCornerVal(P, U, R, L, D);
+      out1[x * 2] = tyranoxCornerVal(P, D, L, R, U);
+      out1[x * 2 + 1] = tyranoxCornerVal(P, D, R, L, U);
+    }
+  }
+}
+
+void tyranoxEdge3xStep(const cv::Mat& src, cv::Mat& dst) {
+  const int lw = src.cols, lh = src.rows;
+  dst.create(lh * 3, lw * 3, CV_32FC1);
+  const int nthr = compute::maxThreads();
+
+#pragma omp parallel for schedule(static) num_threads(nthr) if (nthr > 1 && lh >= 64)
+  for (int y = 0; y < lh; ++y) {
+    const float* rU = src.ptr<float>(std::max(0, y - 1));
+    const float* rP = src.ptr<float>(y);
+    const float* rD = src.ptr<float>(std::min(lh - 1, y + 1));
+    float* out0 = dst.ptr<float>(y * 3);
+    float* out1 = dst.ptr<float>(y * 3 + 1);
+    float* out2 = dst.ptr<float>(y * 3 + 2);
+    for (int x = 0; x < lw; ++x) {
+      const float P = rP[x];
+      const float U = rU[x];
+      const float D = rD[x];
+      const float L = rP[std::max(0, x - 1)];
+      const float R = rP[std::min(lw - 1, x + 1)];
+      const int bx = x * 3;
+      out0[bx] = tyranoxCornerVal(P, U, L, R, D);
+      out0[bx + 1] = P;
+      out0[bx + 2] = tyranoxCornerVal(P, U, R, L, D);
+      out1[bx] = P;
+      out1[bx + 1] = P;
+      out1[bx + 2] = P;
+      out2[bx] = tyranoxCornerVal(P, D, L, R, U);
+      out2[bx + 1] = P;
+      out2[bx + 2] = tyranoxCornerVal(P, D, R, L, U);
+    }
+  }
+}
+}  // namespace
+
+void tyranoxEdgeUpscale(const cv::Mat& src, cv::Mat& dst, cv::Size dstSize) {
+  CV_Assert(src.type() == CV_32FC1);
+  if (dstSize.width == src.cols * 3 && dstSize.height == src.rows * 3) {
+    tyranoxEdge3xStep(src, dst);
+    return;
+  }
+  cv::Mat cur = src;
+  while (cur.cols * 2 <= dstSize.width && cur.rows * 2 <= dstSize.height) {
+    cv::Mat next;
+    tyranoxEdge2xStep(cur, next);
+    cur = std::move(next);
+  }
+  if (cur.size() != dstSize) {
+    cv::resize(cur, dst, dstSize, 0, 0, cv::INTER_LINEAR);
+  } else {
+    dst = std::move(cur);
+  }
+}
+
+void tyranoxSmoothUpscale(const cv::Mat& src, cv::Mat& dst, cv::Size dstSize) {
+  CV_Assert(src.type() == CV_32FC1);
+  cv::Mat dup;
+  tyranoxCrazyUpscale(src, dup, dstSize);
+  const float scale = static_cast<float>(dstSize.width) / std::max(1, src.cols);
+  const float sigmaSpace = std::clamp(0.9f + 0.35f * scale, 1.0f, 3.0f);
+  const int d = (scale >= 4.0f) ? 7 : 5;
+  cv::bilateralFilter(dup, dst, d, 0.085, sigmaSpace, cv::BORDER_REPLICATE);
 }
 
 }  // namespace vu::recon

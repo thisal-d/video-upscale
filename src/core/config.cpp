@@ -20,6 +20,9 @@ const char* toString(Upscaler u) {
     case Upscaler::EdgeAware: return "edge";
     case Upscaler::BackProjection: return "ibp";
     case Upscaler::MultiFrame: return "mfsr";
+    case Upscaler::TyranoxCrazy: return "tyranox_crazy";
+    case Upscaler::TyranoxEdge: return "tyranox_edge";
+    case Upscaler::TyranoxSmooth: return "tyranox_smooth";
   }
   return "?";
 }
@@ -43,7 +46,8 @@ const char* toString(Backend b) {
 
 bool parseUpscaler(const std::string& s, Upscaler& out) {
   for (Upscaler u : {Upscaler::Nearest, Upscaler::Bilinear, Upscaler::Bicubic, Upscaler::Lanczos,
-                     Upscaler::EdgeAware, Upscaler::BackProjection, Upscaler::MultiFrame}) {
+                     Upscaler::EdgeAware, Upscaler::BackProjection, Upscaler::MultiFrame,
+                     Upscaler::TyranoxCrazy, Upscaler::TyranoxEdge, Upscaler::TyranoxSmooth}) {
     if (s == toString(u)) {
       out = u;
       return true;
@@ -52,6 +56,12 @@ bool parseUpscaler(const std::string& s, Upscaler& out) {
   if (s == "temporal" || s == "multiframe") { out = Upscaler::MultiFrame; return true; }
   if (s == "edge-aware" || s == "edgeaware") { out = Upscaler::EdgeAware; return true; }
   if (s == "backprojection") { out = Upscaler::BackProjection; return true; }
+  if (s == "tyranox" || s == "tyranox-crazy" || s == "tyranox crazy" || s == "Tyranox - crazy") {
+    out = Upscaler::TyranoxCrazy;
+    return true;
+  }
+  if (s == "tyranox-edge") { out = Upscaler::TyranoxEdge; return true; }
+  if (s == "tyranox-smooth") { out = Upscaler::TyranoxSmooth; return true; }
   return false;
 }
 bool parseToggle(const std::string& s, Toggle& out) {
@@ -100,7 +110,7 @@ void ProcessingConfig::applyPreset(const std::string& preset) {
 
 void ProcessingConfig::validate() const {
   auto bad = [](const std::string& m) { fail(ErrorCode::InvalidArgument, m); };
-  if (scale != 2 && scale != 4 && scale != 8) bad("scale must be 2, 4 or 8");
+  if (scale != 2 && scale != 3 && scale != 4 && scale != 8) bad("scale must be 2, 3, 4 or 8");
   if (threads < 0) bad("threads must be >= 0");
   if (tileSize < 32 || tileSize > 4096) bad("tile_size must be in [32, 4096]");
   if (queueDepth < 1 || queueDepth > 64) bad("queue_depth must be in [1, 64]");
@@ -119,7 +129,7 @@ void ProcessingConfig::validate() const {
   if (enhance.denoiseStrength < 0.f || enhance.denoiseStrength > 4.f) bad("enhance.denoise_strength must be in [0, 4]");
   if (encoder.crf < 0 || encoder.crf > 51) bad("encoder.crf must be in [0, 51]");
   if (chromaUpscaler == Upscaler::MultiFrame || chromaUpscaler == Upscaler::BackProjection)
-    bad("chroma_upscaler must be a spatial interpolator (nearest|bilinear|bicubic|lanczos|edge)");
+    bad("chroma_upscaler must be a spatial interpolator (nearest|bilinear|bicubic|lanczos|edge|tyranox_crazy|tyranox_edge|tyranox_smooth)");
 }
 
 void to_json(json& j, const ProcessingConfig& c) {

@@ -40,6 +40,9 @@ ALGORITHMS = [
     ("mfsr", "MFSR (5-Frame Super-Res — best detail & motion)", True),
     ("ibp", "IBP (Single-Frame Iterative Back-Projection — fast & crisp)", False),
     ("edge", "Edge-Aware (Structure-tensor interpolation — very fast)", False),
+    ("tyranox_crazy", "Tyranox - crazy (Pure 1→s×s Pixel Replication — exact luma & chroma blocks)", False),
+    ("tyranox_edge", "Tyranox Edge (Smart Diagonal Pixel Double — anti-staircase)", False),
+    ("tyranox_smooth", "Tyranox Smooth (Pixel Replication + Anti-Aliasing)", False),
     ("lanczos", "Lanczos (Sharp classical resampling)", False),
     ("bicubic", "Bicubic (Standard smooth resampling)", False),
     ("bilinear", "Bilinear (Fast linear resampling)", False),
@@ -47,16 +50,17 @@ ALGORITHMS = [
 ]
 
 SCALES = [
-    (2, "2× (Recommended)", True),
-    (4, "4× (High Res)", False),
-    (8, "8× (Experimental)", False),
+    (2, "2× (Recommended — 1→4 pixels)", True),
+    (3, "3× (Exact 360p → 1080p — 1→9 pixels)", False),
+    (4, "4× (High Res — 1→16 pixels)", False),
+    (8, "8× (Experimental — 1→64 pixels)", False),
 ]
 
 
 class VideoUpscaleApp:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.root.title("VideoUpscale Studio v0.1.0")
+        self.root.title("VideoUpscale Studio v0.1.1")
         self.root.geometry("980x780")
         self.root.minsize(860, 680)
         self._set_window_icon()
@@ -642,23 +646,25 @@ class VideoUpscaleApp:
                     for algo in cfg["algos"]:
                         if self.cancel_event.is_set():
                             break
-                        prog_tag = "_prog" if (cfg["progressive"] and scale > 2) else ""
+                        use_prog = cfg["progressive"] and scale in (4, 8) and algo != "tyranox_crazy"
+                        prog_tag = "_prog" if use_prog else ""
                         prev_tag = "_preview" if cfg["preview"] else ""
                         out_name = f"{stem}{wm_tag}_{algo}_{scale}x{prog_tag}{prev_tag}.mp4"
                         out_path = cfg["out_dir"] / out_name
 
                         # Write per-job JSON config so halo_suppression and preset are exact
+                        is_pure_rep = algo == "tyranox_crazy"
                         job_cfg = {
                             "preset": cfg["preset"],
                             "scale": scale,
                             "upscaler": algo,
-                            "progressive": cfg["progressive"],
+                            "progressive": use_prog,
                             "backend": cfg["backend"],
                             "enhance": {
-                                "denoise": cfg["denoise"],
-                                "deblock": cfg["deblock"],
-                                "sharpen": cfg["sharpen"],
-                                "halo_suppression": cfg["halo"],
+                                "denoise": "off" if is_pure_rep else cfg["denoise"],
+                                "deblock": "off" if is_pure_rep else cfg["deblock"],
+                                "sharpen": 0.0 if is_pure_rep else cfg["sharpen"],
+                                "halo_suppression": False if is_pure_rep else cfg["halo"],
                             },
                             "encoder": {
                                 "codec": cfg["codec"],
@@ -667,6 +673,8 @@ class VideoUpscaleApp:
                                 "copy_audio": cfg["copy_audio"],
                             },
                         }
+                        if is_pure_rep:
+                            job_cfg["chroma_upscaler"] = "tyranox_crazy"
                         fd, cfg_tmp = tempfile.mkstemp(suffix=".json")
                         os.close(fd)
                         cfg_path = Path(cfg_tmp)

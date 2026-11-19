@@ -37,9 +37,13 @@ class SpatialProcessor final : public FrameProcessor {
 
     kern::u8ToFloat(f->y, yf_);
 
+    const bool isPureReplication = (cfg_.upscaler == Upscaler::TyranoxCrazy);
     const bool isBaseline = (cfg_.upscaler == Upscaler::Nearest || cfg_.upscaler == Upscaler::Bilinear ||
-                             cfg_.upscaler == Upscaler::Bicubic || cfg_.upscaler == Upscaler::Lanczos);
+                             cfg_.upscaler == Upscaler::Bicubic || cfg_.upscaler == Upscaler::Lanczos ||
+                             isPureReplication);
     const bool forceEnhance = (cfg_.enhance.denoise == Toggle::On || cfg_.enhance.deblock == Toggle::On);
+    const bool useProgressive = cfg_.progressive && (cfg_.scale == 4 || cfg_.scale == 8) && !isPureReplication;
+    const Upscaler effectiveChroma = isPureReplication ? Upscaler::TyranoxCrazy : cfg_.chromaUpscaler;
 
     cv::Mat lumaIn = yf_;
     if (!isBaseline || forceEnhance) {
@@ -63,18 +67,18 @@ class SpatialProcessor final : public FrameProcessor {
       if (rp.psfSigma <= 0.f) {
         // Adapt PSF to measured blur so sharp sources aren't over-deconvolved while blurry ones are restored.
         const float t = std::clamp((lastMetrics_.blurScore - 0.25f) / 0.35f, 0.f, 1.f);
-        rp.psfSigma = (0.26f + 0.16f * t) * (cfg_.progressive && cfg_.scale > 2 ? 2 : cfg_.scale);
+        rp.psfSigma = (0.26f + 0.16f * t) * (useProgressive ? 2 : cfg_.scale);
       }
       if (lastMetrics_.noiseSigma > 0.008f || lastMetrics_.blockiness > 0.12f) {
         rp.btvLambda *= (1.0f + 50.0f * lastMetrics_.noiseSigma + 3.0f * lastMetrics_.blockiness);
       }
       recon::IbpStats ist =
-          (cfg_.progressive && cfg_.scale > 2)
+          useProgressive
               ? recon::iterativeBackProjectionProgressive(lumaIn, outYf_, cfg_.scale, rp, cfg_.tileSize)
               : recon::iterativeBackProjection(lumaIn, outYf_, cfg_.scale, rp, cfg_.tileSize);
       sumInitRmse_ += ist.initialRmse;
       sumFinalRmse_ += ist.finalRmse;
-    } else if (cfg_.progressive && cfg_.scale > 2) {
+    } else if (useProgressive) {
       recon::upscaleProgressive(lumaIn, outYf_, cfg_.scale, cfg_.upscaler, cfg_.recon.edgeBlend);
     } else {
       recon::upscalePlane(lumaIn, outYf_, cv::Size(outW_, outH_), cfg_.upscaler, cfg_.recon.edgeBlend);
@@ -90,11 +94,11 @@ class SpatialProcessor final : public FrameProcessor {
 
     const cv::Size cSize((outW_ + 1) / 2, (outH_ + 1) / 2);
     kern::u8ToFloat(f->u, uf_);
-    recon::upscalePlane(uf_, outUf_, cSize, cfg_.chromaUpscaler);
+    recon::upscalePlane(uf_, outUf_, cSize, effectiveChroma);
     kern::floatToU8(outUf_, out->u);
 
     kern::u8ToFloat(f->v, vf_);
-    recon::upscalePlane(vf_, outVf_, cSize, cfg_.chromaUpscaler);
+    recon::upscalePlane(vf_, outVf_, cSize, effectiveChroma);
     kern::floatToU8(outVf_, out->v);
 
     ++frames_;
@@ -104,8 +108,11 @@ class SpatialProcessor final : public FrameProcessor {
   void flush(const Emit&) override {}
 
   std::string describe() const override {
+    const bool isPureReplication = (cfg_.upscaler == Upscaler::TyranoxCrazy);
+    const bool useProgressive = cfg_.progressive && (cfg_.scale == 4 || cfg_.scale == 8) && !isPureReplication;
+    const Upscaler effectiveChroma = isPureReplication ? Upscaler::TyranoxCrazy : cfg_.chromaUpscaler;
     return std::format("spatial({}, {}x, {}, chroma={})", toString(cfg_.upscaler), cfg_.scale,
-                       cfg_.progressive ? "progressive" : "direct", toString(cfg_.chromaUpscaler));
+                       useProgressive ? "progressive" : "direct", toString(effectiveChroma));
   }
 
   nlohmann::json statistics() const override {
@@ -199,8 +206,9 @@ class MultiFrameProcessor final : public FrameProcessor {
   }
 
   std::string describe() const override {
+    const bool useProgressive = cfg_.progressive && (cfg_.scale == 4 || cfg_.scale == 8);
     return std::format("mfsr(window={}, {}x, {}, flow={})", 2 * cfg_.temporal.radius + 1, cfg_.scale,
-                       cfg_.progressive ? "progressive" : "direct", cfg_.temporal.flowPreset);
+                       useProgressive ? "progressive" : "direct", cfg_.temporal.flowPreset);
   }
 
   nlohmann::json statistics() const override {
@@ -241,7 +249,8 @@ class MultiFrameProcessor final : public FrameProcessor {
     ProcessingConfig runCfg = cfg_;
     if (runCfg.recon.psfSigma <= 0.f) {
       const float t = std::clamp((lastMetrics_.blurScore - 0.25f) / 0.35f, 0.f, 1.f);
-      const int effScale = (runCfg.progressive && runCfg.scale > 2) ? 2 : runCfg.scale;
+      const bool useProgressive = runCfg.progressive && (runCfg.scale == 4 || runCfg.scale == 8);
+      const int effScale = useProgressive ? 2 : runCfg.scale;
       runCfg.recon.psfSigma = (0.26f + 0.16f * t) * effScale;
     }
     if (lastMetrics_.noiseSigma > 0.008f || lastMetrics_.blockiness > 0.12f) {
@@ -333,6 +342,9 @@ std::unique_ptr<FrameProcessor> createProcessor(const ProcessingConfig& cfg) {
     case Upscaler::Lanczos:
     case Upscaler::EdgeAware:
     case Upscaler::BackProjection:
+    case Upscaler::TyranoxCrazy:
+    case Upscaler::TyranoxEdge:
+    case Upscaler::TyranoxSmooth:
       return std::make_unique<SpatialProcessor>(cfg);
     case Upscaler::MultiFrame:
       return std::make_unique<MultiFrameProcessor>(cfg);

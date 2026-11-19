@@ -16,6 +16,7 @@
 #include "io/decoder.hpp"
 #include "io/encoder.hpp"
 #include "pipeline/pipeline.hpp"
+#include "pipeline/processor.hpp"
 #include "reconstruct/spatial.hpp"
 
 namespace fs = std::filesystem;
@@ -73,11 +74,28 @@ TEST(CoreTest, BoundedQueuePreservesOrderAndCloses) {
 TEST(CoreTest, ConfigValidationAndJson) {
   ProcessingConfig c;
   EXPECT_NO_THROW(c.validate());
-  c.scale = 3;
+  for (int validScale : {2, 3, 4, 8}) {
+    c.scale = validScale;
+    EXPECT_NO_THROW(c.validate());
+  }
+  c.scale = 5;
   EXPECT_THROW(c.validate(), Error);
   c.scale = 4;
   c.applyPreset("quality");
   EXPECT_EQ(c.recon.iterations, 8);
+
+  Upscaler u = Upscaler::MultiFrame;
+  EXPECT_TRUE(parseUpscaler("tyranox_crazy", u));
+  EXPECT_EQ(u, Upscaler::TyranoxCrazy);
+  EXPECT_STREQ(toString(u), "tyranox_crazy");
+  EXPECT_TRUE(parseUpscaler("tyranox", u));
+  EXPECT_EQ(u, Upscaler::TyranoxCrazy);
+  EXPECT_TRUE(parseUpscaler("tyranox-crazy", u));
+  EXPECT_EQ(u, Upscaler::TyranoxCrazy);
+  EXPECT_TRUE(parseUpscaler("tyranox_edge", u));
+  EXPECT_EQ(u, Upscaler::TyranoxEdge);
+  EXPECT_TRUE(parseUpscaler("tyranox_smooth", u));
+  EXPECT_EQ(u, Upscaler::TyranoxSmooth);
 }
 
 TEST(SpatialTest, AllBaselineUpscalersAndAllScales) {
@@ -86,7 +104,7 @@ TEST(SpatialTest, AllBaselineUpscalersAndAllScales) {
     for (int x = 0; x < lr.cols; ++x)
       lr.at<float>(y, x) = (x > y) ? 0.85f : 0.15f;
 
-  for (int scale : {2, 4, 8}) {
+  for (int scale : {2, 3, 4, 8}) {
     for (Upscaler m : {Upscaler::Nearest, Upscaler::Bilinear, Upscaler::Bicubic, Upscaler::Lanczos,
                        Upscaler::EdgeAware}) {
       cv::Mat hr;
@@ -104,6 +122,124 @@ TEST(SpatialTest, AllBaselineUpscalersAndAllScales) {
   recon::upscaleProgressive(lr, prog, 4, Upscaler::EdgeAware);
   EXPECT_EQ(prog.cols, lr.cols * 4);
   EXPECT_EQ(prog.rows, lr.rows * 4);
+}
+
+TEST(SpatialTest, TyranoxCrazyExactReplication2xAnd3xAndAllScales) {
+  cv::Mat lr(8, 8, CV_32FC1, cv::Scalar(1.0f));
+  lr.at<float>(0, 0) = 0.0f;  // 1 black pixel at the start
+  lr.at<float>(3, 4) = 0.25f;
+  lr.at<float>(7, 7) = 0.6f;
+
+  // Exact 2x (1 -> 4 pixels per original pixel)
+  cv::Mat out2x;
+  recon::upscalePlane(lr, out2x, cv::Size(16, 16), Upscaler::TyranoxCrazy);
+  ASSERT_EQ(out2x.cols, 16);
+  ASSERT_EQ(out2x.rows, 16);
+  for (int y = 0; y < lr.rows; ++y) {
+    for (int x = 0; x < lr.cols; ++x) {
+      const float expected = lr.at<float>(y, x);
+      for (int sy = 0; sy < 2; ++sy) {
+        for (int sx = 0; sx < 2; ++sx) {
+          EXPECT_FLOAT_EQ(out2x.at<float>(y * 2 + sy, x * 2 + sx), expected);
+        }
+      }
+    }
+  }
+
+  // Exact 3x (1 -> 9 pixels per original pixel, e.g. 360p -> 1080p)
+  cv::Mat out3x;
+  recon::upscalePlane(lr, out3x, cv::Size(24, 24), Upscaler::TyranoxCrazy);
+  ASSERT_EQ(out3x.cols, 24);
+  ASSERT_EQ(out3x.rows, 24);
+  for (int y = 0; y < lr.rows; ++y) {
+    for (int x = 0; x < lr.cols; ++x) {
+      const float expected = lr.at<float>(y, x);
+      for (int sy = 0; sy < 3; ++sy) {
+        for (int sx = 0; sx < 3; ++sx) {
+          EXPECT_FLOAT_EQ(out3x.at<float>(y * 3 + sy, x * 3 + sx), expected);
+        }
+      }
+    }
+  }
+
+  // Diagonal step pattern for TyranoxCrazy, TyranoxEdge & TyranoxSmooth across 2x/3x/4x/8x
+  cv::Mat diag(16, 16, CV_32FC1, cv::Scalar(0.1f));
+  for (int i = 0; i < 16; ++i) diag.at<float>(i, i) = 0.9f;
+
+  for (int scale : {2, 3, 4, 8}) {
+    for (Upscaler m : {Upscaler::TyranoxCrazy, Upscaler::TyranoxEdge, Upscaler::TyranoxSmooth}) {
+      cv::Mat hr;
+      recon::upscalePlane(diag, hr, cv::Size(diag.cols * scale, diag.rows * scale), m);
+      EXPECT_EQ(hr.cols, diag.cols * scale);
+      EXPECT_EQ(hr.rows, diag.rows * scale);
+      double mn = 0, mx = 0;
+      cv::minMaxLoc(hr, &mn, &mx);
+      EXPECT_GE(mn, 0.0);
+      EXPECT_LE(mx, 1.0);
+    }
+  }
+}
+
+TEST(SpatialTest, TyranoxCrazyReplicatesLumaAndChromaExactly2xAnd3x) {
+  const int w = 8, h = 8;
+  for (int scale : {2, 3}) {
+    ProcessingConfig cfg;
+    cfg.scale = scale;
+    cfg.upscaler = Upscaler::TyranoxCrazy;
+    cfg.chromaUpscaler = Upscaler::Bicubic;  // must be overridden to exact pixel replication
+    cfg.enhance.sharpen = 0.0f;
+
+    auto proc = createProcessor(cfg);
+    EXPECT_NE(proc->describe().find("tyranox_crazy"), std::string::npos);
+    EXPECT_NE(proc->describe().find("chroma=tyranox_crazy"), std::string::npos);
+
+    VideoInfo vi;
+    vi.width = w;
+    vi.height = h;
+    FramePool inPool(w, h, 2), outPool(w * scale, h * scale, 2);
+    proc->begin(vi, outPool);
+
+    auto inF = inPool.acquire();
+    inF->y.setTo(200);
+    inF->y.at<uint8_t>(0, 0) = 16;
+    inF->y.at<uint8_t>(3, 5) = 123;
+    inF->u.setTo(180);
+    inF->u.at<uint8_t>(0, 0) = 42;
+    inF->u.at<uint8_t>(2, 3) = 215;
+    inF->v.setTo(90);
+    inF->v.at<uint8_t>(1, 2) = 240;
+
+    FramePtr outF;
+    proc->push(inF, [&](FramePtr f) { outF = std::move(f); });
+    ASSERT_NE(outF, nullptr);
+    ASSERT_EQ(outF->y.cols, w * scale);
+    ASSERT_EQ(outF->y.rows, h * scale);
+    ASSERT_EQ(outF->u.cols, (w / 2) * scale);
+    ASSERT_EQ(outF->u.rows, (h / 2) * scale);
+    ASSERT_EQ(outF->v.cols, (w / 2) * scale);
+    ASSERT_EQ(outF->v.rows, (h / 2) * scale);
+
+    for (int y = 0; y < h; ++y) {
+      for (int x = 0; x < w; ++x) {
+        const uint8_t v = inF->y.at<uint8_t>(y, x);
+        for (int sy = 0; sy < scale; ++sy)
+          for (int sx = 0; sx < scale; ++sx)
+            EXPECT_EQ(outF->y.at<uint8_t>(y * scale + sy, x * scale + sx), v);
+      }
+    }
+    for (int y = 0; y < h / 2; ++y) {
+      for (int x = 0; x < w / 2; ++x) {
+        const uint8_t uVal = inF->u.at<uint8_t>(y, x);
+        const uint8_t vVal = inF->v.at<uint8_t>(y, x);
+        for (int sy = 0; sy < scale; ++sy) {
+          for (int sx = 0; sx < scale; ++sx) {
+            EXPECT_EQ(outF->u.at<uint8_t>(y * scale + sy, x * scale + sx), uVal);
+            EXPECT_EQ(outF->v.at<uint8_t>(y * scale + sy, x * scale + sx), vVal);
+          }
+        }
+      }
+    }
+  }
 }
 
 TEST(IOTest, SyntheticEncodeDecodePreservesVfrTimestamps) {
@@ -254,6 +390,58 @@ TEST(IOTest, RealVideoMfsrAndCpuBackendEndToEnd) {
   EXPECT_EQ(rep.outWidth, 1440);
   EXPECT_EQ(rep.outHeight, 2560);
   EXPECT_EQ(rep.encoder.copiedStreams.size(), 1u);
+  EXPECT_TRUE(rep.validation.value("ok", false));
+
+  fs::remove_all(dir);
+}
+
+TEST(IOTest, Synthetic3xTyranoxCrazyPipelineEndToEnd) {
+  const fs::path dir = makeTempDir("tyranox_3x");
+  const fs::path srcPath = dir / "src_64x48.mkv";
+  const fs::path outPath = dir / "out_192x144.mkv";
+
+  const int w = 64, h = 48;
+  {
+    VideoEncoder enc;
+    EncoderSettings es;
+    es.codec = "libx264";
+    es.crf = 10;
+    es.preset = "ultrafast";
+    es.width = w;
+    es.height = h;
+    es.timeBase = Rational{1, 30};
+    es.frameRate = Rational{30, 1};
+    es.copyAudio = false;
+    enc.open(srcPath.string(), es, nullptr, -1);
+
+    VideoFrame f;
+    f.allocate(w, h);
+    for (int i = 0; i < 4; ++i) {
+      fillPatternFrame(f, i, w, h);
+      f.pts = i;
+      f.duration = 1;
+      enc.write(f);
+    }
+    enc.finish();
+  }
+
+  PipelineOptions opt;
+  opt.input = srcPath.string();
+  opt.output = outPath.string();
+  opt.cfg.scale = 3;
+  opt.cfg.upscaler = Upscaler::TyranoxCrazy;
+  opt.cfg.encoder.preset = "ultrafast";
+  opt.cfg.encoder.crf = 12;
+  opt.progress = false;
+  opt.overwrite = true;
+
+  RunReport rep = runUpscale(opt);
+  EXPECT_EQ(rep.framesDecoded, 4);
+  EXPECT_EQ(rep.framesEncoded, 4);
+  EXPECT_EQ(rep.outWidth, w * 3);
+  EXPECT_EQ(rep.outHeight, h * 3);
+  EXPECT_NE(rep.processor.find("tyranox_crazy"), std::string::npos);
+  EXPECT_NE(rep.processor.find("chroma=tyranox_crazy"), std::string::npos);
   EXPECT_TRUE(rep.validation.value("ok", false));
 
   fs::remove_all(dir);

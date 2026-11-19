@@ -2,7 +2,7 @@
 
 ## 1. Summary of What Was Built
 
-**VideoUpscale (`v0.1.0`)** is a CPU-first classical computer-vision video super-resolution and enhancement engine implemented in **C++20** with **CMake + Ninja**, **FFmpeg n8.1**, **OpenCV 4.14.0**, **OpenMP 2.0**, **AVX2+FMA**, **GoogleTest v1.18.0**, **Google Benchmark v1.10.0**, and **nlohmann/json v3.12.0**.
+**VideoUpscale (`v0.1.1`)** is a CPU-first classical computer-vision video super-resolution and enhancement engine implemented in **C++20** with **CMake + Ninja**, **FFmpeg n8.1**, **OpenCV 4.14.0**, **OpenMP 2.0**, **AVX2+FMA**, **GoogleTest v1.18.0**, **Google Benchmark v1.10.0**, and **nlohmann/json v3.12.0**.
 
 ### Subsystems (`src/`)
 - **Core (`src/core/`)**: `ErrorCode`/`vu::Error`, thread-safe logger with stderr progress reporting (`log.cpp`), `FramePool` buffer recycling (`frame_pool.cpp`), fixed-capacity MPMC `BoundedQueue` (`bounded_queue.hpp`), JSON/preset `ProcessingConfig` with validation (`config.cpp`), Windows working-set memory & CPUID/AVX2 detection + `SIGINT` handler (`system.cpp`).
@@ -37,7 +37,7 @@ Artifacts produced:
 - CLI: `build/src/videoupscale.exe`
 - Tests: `build/tests/vu_tests.exe`
 - Micro-benchmarks: `build/bench/vu_bench.exe`
-- Portable release ZIP: `build/packages/VideoUpscale-0.1.0-win64.zip`
+- Portable release ZIP: `build/packages/VideoUpscale-0.1.1-win64.zip`
 
 ### CLI Examples
 ```powershell

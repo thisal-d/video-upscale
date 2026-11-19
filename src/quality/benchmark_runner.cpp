@@ -77,7 +77,7 @@ std::vector<MethodSpec> buildMethodSpecs(const BenchmarkOptions& opt) {
     Upscaler u;
     if (!parseUpscaler(n, u)) fail(ErrorCode::InvalidArgument, "unknown benchmark method: " + n);
     specs.push_back({toString(u), u, false});
-    if (opt.compareProgressive && opt.scale > 2 &&
+    if (opt.compareProgressive && (opt.scale == 4 || opt.scale == 8) &&
         (u == Upscaler::EdgeAware || u == Upscaler::BackProjection || u == Upscaler::MultiFrame)) {
       specs.push_back({std::string(toString(u)) + "_prog", u, true});
     }

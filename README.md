@@ -9,7 +9,7 @@
 
 ## Features
 
-- **Scaling Factors**: `2x`, `4x`, `8x` (direct reconstruction and progressive `2x` stage modes)
+- **Scaling Factors**: `2x`, `3x`, `4x`, `8x` (direct reconstruction and progressive `2x` stage modes for `4x`/`8x`)
 - **Reconstruction & Spatial Baselines**:
   - `nearest`, `bilinear`, `bicubic`, `lanczos`
   - `edge`: Structure-tensor anisotropic edge-directed interpolation
@@ -81,7 +81,7 @@ Launch the GUI directly in development:
 python ui\videoupscale_gui.py
 ```
 
-Or build the standalone **VideoUpscale Studio** GUI + CLI + Inno Setup installer (`build/installer/VideoUpscale-0.1.0-Setup.exe`):
+Or build the standalone **VideoUpscale Studio** GUI + CLI + Inno Setup installer (`build/installer/VideoUpscale-0.1.1-Setup.exe`):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\build_installer.ps1
@@ -90,7 +90,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build_installer.ps1
 The GUI supports:
 - Multi-video input queue + video quality inspection (`analyze`)
 - Optional **Dola AI** & **Gemini Sparkle** watermark removal pre-passes (`inpaint` / `delogo`, custom ROI, enable/disable)
-- Multi-select **Output Scales** (`2×`, `4×`, `8×`) and **Algorithms** (`mfsr`, `ibp`, `edge`, `lanczos`, `bicubic`, `bilinear`, `nearest`) to generate multiple comparison outputs in one click
+- Multi-select **Output Scales** (`2×`, `3×`, `4×`, `8×`) and **Algorithms** (`mfsr`, `ibp`, `edge`, `tyranox_crazy` ("Tyranox - crazy"), `tyranox_edge`, `tyranox_smooth`, `lanczos`, `bicubic`, `bilinear`, `nearest`) to generate multiple comparison outputs in one click
 - Presets (`quality`, `balanced`, `fast`), denoise/deblock/sharpen/halo suppression, CRF/codec/backend settings, 24-frame preview mode, live progress bars, and cancellation
 
 ## Documentation

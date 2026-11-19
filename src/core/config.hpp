@@ -5,7 +5,18 @@
 
 namespace vu {
 
-enum class Upscaler { Nearest, Bilinear, Bicubic, Lanczos, EdgeAware, BackProjection, MultiFrame };
+enum class Upscaler {
+  Nearest,
+  Bilinear,
+  Bicubic,
+  Lanczos,
+  EdgeAware,
+  BackProjection,
+  MultiFrame,
+  TyranoxCrazy,
+  TyranoxEdge,
+  TyranoxSmooth
+};
 enum class Toggle { Off, Auto, On };
 enum class Backend { Auto, Cpu, OpenMP, Gpu };
 
